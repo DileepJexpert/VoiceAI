@@ -31,15 +31,23 @@ data class SearchUiState(
     val query: String = "",
     val voiceNoteResults: List<VoiceNote> = emptyList(),
     val scanResults: List<ScannedDocument> = emptyList(),
+    val actionItemResults: List<ActionItem> = emptyList(),
+    val contactResults: List<ScannedContact> = emptyList(),
+    val expenseResults: List<Expense> = emptyList(),
     val selectedFilter: SearchFilter = SearchFilter.ALL,
-    val isSearching: Boolean = false
+    val isSearching: Boolean = false,
+    val aiAnswer: String? = null,
+    val isAskingAI: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val voiceNoteRepository: VoiceNoteRepository,
-    private val scannedDocumentRepository: ScannedDocumentRepository
+    private val scannedDocumentRepository: ScannedDocumentRepository,
+    private val actionItemRepository: ActionItemRepository,
+    private val contactRepository: ContactRepository,
+    private val expenseRepository: ExpenseRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -58,7 +66,11 @@ class SearchViewModel @Inject constructor(
                             it.copy(
                                 voiceNoteResults = emptyList(),
                                 scanResults = emptyList(),
-                                isSearching = false
+                                actionItemResults = emptyList(),
+                                contactResults = emptyList(),
+                                expenseResults = emptyList(),
+                                isSearching = false,
+                                aiAnswer = null
                             )
                         }
                         return@collectLatest
@@ -66,16 +78,34 @@ class SearchViewModel @Inject constructor(
 
                     _uiState.update { it.copy(isSearching = true) }
 
+                    val lowerQuery = query.lowercase()
+
                     combine(
                         voiceNoteRepository.searchNotes(query),
-                        scannedDocumentRepository.searchDocuments(query)
-                    ) { notes, docs ->
-                        Pair(notes, docs)
-                    }.collectLatest { (notes, docs) ->
+                        scannedDocumentRepository.searchDocuments(query),
+                        actionItemRepository.getAll(),
+                        contactRepository.getAll(),
+                        expenseRepository.getAll()
+                    ) { notes, docs, allActions, allContacts, allExpenses ->
+                        val filteredActions = allActions.filter {
+                            it.title.lowercase().contains(lowerQuery)
+                        }
+                        val filteredContacts = allContacts.filter {
+                            it.name.lowercase().contains(lowerQuery) ||
+                                (it.company?.lowercase()?.contains(lowerQuery) == true)
+                        }
+                        val filteredExpenses = allExpenses.filter {
+                            it.merchant.lowercase().contains(lowerQuery)
+                        }
+                        SearchResults(notes, docs, filteredActions, filteredContacts, filteredExpenses)
+                    }.collectLatest { results ->
                         _uiState.update {
                             it.copy(
-                                voiceNoteResults = notes,
-                                scanResults = docs,
+                                voiceNoteResults = results.notes,
+                                scanResults = results.docs,
+                                actionItemResults = results.actionItems,
+                                contactResults = results.contacts,
+                                expenseResults = results.expenses,
                                 isSearching = false
                             )
                         }
@@ -99,4 +129,29 @@ class SearchViewModel @Inject constructor(
         }
         queryFlow.value = ""
     }
+
+    fun askAI(question: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAskingAI = true, aiAnswer = null) }
+            // Placeholder: in production this would call an AI service
+            _uiState.update {
+                it.copy(
+                    isAskingAI = false,
+                    aiAnswer = "AI analysis for \"$question\" is not yet available. Connect an AI backend to enable this feature."
+                )
+            }
+        }
+    }
+
+    fun dismissAIAnswer() {
+        _uiState.update { it.copy(aiAnswer = null) }
+    }
+
+    private data class SearchResults(
+        val notes: List<VoiceNote>,
+        val docs: List<ScannedDocument>,
+        val actionItems: List<ActionItem>,
+        val contacts: List<ScannedContact>,
+        val expenses: List<Expense>
+    )
 }
