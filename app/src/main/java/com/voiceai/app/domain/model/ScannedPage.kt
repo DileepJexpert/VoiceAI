@@ -7,5 +7,6 @@ data class ScannedPage(
     val imagePath: String,
     val rawImagePath: String,
     val pageText: String?,
-    val filter: String
+    val filter: String,
+    val tableData: String? = null
 )

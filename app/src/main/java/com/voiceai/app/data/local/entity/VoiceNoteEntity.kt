@@ -22,5 +22,21 @@ data class VoiceNoteEntity(
     @ColumnInfo(name = "is_favorite")
     val isFavorite: Boolean = false,
     @ColumnInfo(name = "folder_id")
-    val folderId: Long? = null
+    val folderId: Long? = null,
+    @ColumnInfo(name = "key_points")
+    val keyPoints: String? = null,
+    @ColumnInfo(name = "action_items")
+    val actionItems: String? = null,
+    val sentiment: String? = null,
+    @ColumnInfo(name = "template_type")
+    val templateType: String? = null,
+    @ColumnInfo(name = "speaker_data")
+    val speakerData: String? = null,
+    val bookmarks: String? = null,
+    @ColumnInfo(name = "linked_calendar_event_id")
+    val linkedCalendarEventId: String? = null,
+    @ColumnInfo(name = "auto_delete_at")
+    val autoDeleteAt: Long? = null,
+    @ColumnInfo(name = "is_encrypted")
+    val isEncrypted: Boolean = false
 )

@@ -31,5 +31,7 @@ data class ScannedPageEntity(
     val rawImagePath: String,
     @ColumnInfo(name = "page_text")
     val pageText: String? = null,
-    val filter: String = "ORIGINAL"
+    val filter: String = "ORIGINAL",
+    @ColumnInfo(name = "table_data")
+    val tableData: String? = null
 )

@@ -38,4 +38,13 @@ interface VoiceNoteDao {
 
     @Query("DELETE FROM voice_notes WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM voice_notes WHERE template_type = :templateType ORDER BY created_at DESC")
+    fun getByTemplate(templateType: String): Flow<List<VoiceNoteEntity>>
+
+    @Query("SELECT * FROM voice_notes WHERE sentiment = :sentiment ORDER BY created_at DESC")
+    fun getBySentiment(sentiment: String): Flow<List<VoiceNoteEntity>>
+
+    @Query("SELECT * FROM voice_notes WHERE auto_delete_at IS NOT NULL AND auto_delete_at < :currentTime")
+    fun getByAutoDelete(currentTime: Long = System.currentTimeMillis()): Flow<List<VoiceNoteEntity>>
 }

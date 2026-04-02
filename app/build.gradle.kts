@@ -111,6 +111,25 @@ dependencies {
     // Lottie
     implementation(libs.lottie.compose)
 
+    // Biometric
+    implementation(libs.biometric)
+
+    // Security
+    implementation(libs.security.crypto)
+
+    // ML Kit extras
+    implementation(libs.mlkit.barcode)
+    implementation(libs.mlkit.digital.ink)
+    implementation(libs.mlkit.text.recognition.devanagari)
+
+    // Glance (Widgets)
+    implementation(libs.glance)
+    implementation(libs.glance.material3)
+
+    // WorkManager
+    implementation(libs.work.runtime)
+    implementation(libs.hilt.work)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

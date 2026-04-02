@@ -13,5 +13,11 @@ data class ScannedDocument(
     val folderId: Long?,
     val pdfFilePath: String?,
     val pages: List<ScannedPage> = emptyList(),
-    val tags: List<Tag> = emptyList()
+    val tags: List<Tag> = emptyList(),
+    val translatedText: String? = null,
+    val keyInfo: String? = null,
+    val documentType: String? = null,
+    val detectedLanguage: String? = null,
+    val autoDeleteAt: Long? = null,
+    val isEncrypted: Boolean = false
 )

@@ -3,7 +3,9 @@ package com.voiceai.app.presentation.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.voiceai.app.domain.model.ActionItem
 import com.voiceai.app.domain.model.VoiceNote
+import com.voiceai.app.domain.repository.AISummaryRepository
 import com.voiceai.app.domain.repository.VoiceNoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +14,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class SpeakerSegment(
+    val speakerId: String,
+    val startTime: Long,
+    val endTime: Long,
+    val text: String
+)
 
 data class NoteDetailUiState(
     val note: VoiceNote? = null,
@@ -23,12 +32,18 @@ data class NoteDetailUiState(
     val selectedTab: Int = 0,
     val isTtsSpeaking: Boolean = false,
     val isDeleted: Boolean = false,
-    val showDeleteDialog: Boolean = false
+    val showDeleteDialog: Boolean = false,
+    val sentiment: String? = null,
+    val keyPoints: List<String> = emptyList(),
+    val actionItemsList: List<ActionItem> = emptyList(),
+    val speakerSegments: List<SpeakerSegment> = emptyList(),
+    val selectedTabIndex: Int = 0
 )
 
 @HiltViewModel
 class NoteDetailViewModel @Inject constructor(
     private val voiceNoteRepository: VoiceNoteRepository,
+    private val aiSummaryRepository: AISummaryRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -45,18 +60,93 @@ class NoteDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val note = voiceNoteRepository.getNoteById(noteId)
+            val keyPoints = note?.keyPoints ?: emptyList()
+            val actionItems = note?.actionItems?.mapIndexed { index, title ->
+                ActionItem(
+                    id = index.toLong(),
+                    title = title,
+                    sourceNoteId = note.id,
+                    sourceScanId = null,
+                    status = "todo",
+                    priority = 0,
+                    dueDate = null,
+                    createdAt = note.createdAt,
+                    completedAt = null
+                )
+            } ?: emptyList()
+            val speakerSegments = parseSpeakerData(note?.speakerData)
             _uiState.update {
                 it.copy(
                     note = note,
                     isLoading = false,
-                    audioDuration = note?.duration ?: 0L
+                    audioDuration = note?.duration ?: 0L,
+                    sentiment = note?.sentiment,
+                    keyPoints = keyPoints,
+                    actionItemsList = actionItems,
+                    speakerSegments = speakerSegments
                 )
             }
         }
     }
 
+    private fun parseSpeakerData(speakerData: String?): List<SpeakerSegment> {
+        if (speakerData.isNullOrBlank()) return emptyList()
+        return try {
+            val jsonArray = org.json.JSONArray(speakerData)
+            (0 until jsonArray.length()).map { i ->
+                val obj = jsonArray.getJSONObject(i)
+                SpeakerSegment(
+                    speakerId = obj.optString("speakerId", "Unknown"),
+                    startTime = obj.optLong("startTime", 0L),
+                    endTime = obj.optLong("endTime", 0L),
+                    text = obj.optString("text", "")
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     fun selectTab(index: Int) {
-        _uiState.update { it.copy(selectedTab = index) }
+        _uiState.update { it.copy(selectedTab = index, selectedTabIndex = index) }
+    }
+
+    fun regenerateSummary() {
+        val transcript = _uiState.value.note?.transcript ?: return
+        viewModelScope.launch {
+            try {
+                val newSummary = aiSummaryRepository.summarizeVoiceNote(transcript)
+                val updatedNote = _uiState.value.note?.copy(
+                    summary = newSummary,
+                    updatedAt = System.currentTimeMillis()
+                ) ?: return@launch
+                voiceNoteRepository.updateNote(updatedNote)
+                _uiState.update { it.copy(note = updatedNote) }
+            } catch (_: Exception) {
+                // Non-fatal: summary regeneration failure
+            }
+        }
+    }
+
+    fun createReminder(actionItemTitle: String) {
+        // Placeholder for reminder creation integration
+    }
+
+    fun updateActionItemStatus(id: Long, status: String) {
+        // Placeholder: update action item status locally
+        _uiState.update { state ->
+            val updatedItems = state.actionItemsList.map { item ->
+                if (item.id == id) {
+                    item.copy(
+                        status = status,
+                        completedAt = if (status == "done") System.currentTimeMillis() else null
+                    )
+                } else {
+                    item
+                }
+            }
+            state.copy(actionItemsList = updatedItems)
+        }
     }
 
     fun playAudio() {

@@ -38,4 +38,7 @@ interface ScannedDocumentDao {
 
     @Query("DELETE FROM scanned_documents WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM scanned_documents WHERE document_type = :type ORDER BY created_at DESC")
+    fun getByDocumentType(type: String): Flow<List<ScannedDocumentEntity>>
 }

@@ -14,6 +14,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,25 +23,36 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -178,7 +190,10 @@ fun RecordScreen(
                     onStartRecording = viewModel::startRecording,
                     onPauseRecording = viewModel::pauseRecording,
                     onResumeRecording = viewModel::resumeRecording,
-                    onStopRecording = viewModel::stopRecording
+                    onStopRecording = viewModel::stopRecording,
+                    onTemplateSelected = viewModel::setTemplate,
+                    onAddBookmark = viewModel::addBookmark,
+                    onToggleLiveTranscription = viewModel::toggleLiveTranscription
                 )
             }
 
@@ -211,6 +226,7 @@ fun RecordScreen(
     // Save bottom sheet
     if (showSaveSheet) {
         SaveRecordingSheet(
+            templateType = uiState.templateType,
             onSave = { title ->
                 showSaveSheet = false
                 viewModel.saveNote(title)
@@ -279,9 +295,13 @@ private fun RecordingContent(
     onStartRecording: () -> Unit,
     onPauseRecording: () -> Unit,
     onResumeRecording: () -> Unit,
-    onStopRecording: () -> Unit
+    onStopRecording: () -> Unit,
+    onTemplateSelected: (String) -> Unit,
+    onAddBookmark: () -> Unit,
+    onToggleLiveTranscription: () -> Unit
 ) {
     val isActive = uiState.isRecording && !uiState.isPaused
+    val templateTypes = listOf("General", "Meeting", "Interview", "Lecture", "Brainstorm", "Journal")
 
     Column(
         modifier = Modifier
@@ -290,6 +310,35 @@ private fun RecordingContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // Template selector row (shown before recording starts)
+        if (!uiState.isRecording && !uiState.isPaused) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Template",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                templateTypes.forEach { template ->
+                    FilterChip(
+                        selected = uiState.templateType.equals(template, ignoreCase = true),
+                        onClick = { onTemplateSelected(template.lowercase()) },
+                        label = { Text(template) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Coral,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.weight(1f))
 
         // Pulsing circle with mic icon
@@ -306,6 +355,28 @@ private fun RecordingContent(
             barColor = Coral
         )
 
+        // Live transcript display
+        if (uiState.isLiveTranscribing && uiState.isRecording) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 60.dp, max = 120.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .padding(12.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = uiState.liveTranscript.ifEmpty { "Listening..." },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Timer display
@@ -319,6 +390,50 @@ private fun RecordingContent(
         )
 
         Spacer(modifier = Modifier.weight(1f))
+
+        // Bookmark and live transcription buttons (shown while recording)
+        if (uiState.isRecording || uiState.isPaused) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Bookmark button with badge
+                BadgedBox(
+                    badge = {
+                        if (uiState.bookmarks.isNotEmpty()) {
+                            Badge(
+                                containerColor = CoralDark,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ) {
+                                Text("${uiState.bookmarks.size}")
+                            }
+                        }
+                    }
+                ) {
+                    IconButton(onClick = onAddBookmark) {
+                        Icon(
+                            imageVector = Icons.Filled.Bookmark,
+                            contentDescription = "Add Bookmark",
+                            tint = Coral
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(24.dp))
+
+                // Live transcription toggle
+                IconButton(onClick = onToggleLiveTranscription) {
+                    Icon(
+                        imageVector = if (uiState.isLiveTranscribing) Icons.Filled.Subtitles else Icons.Filled.MicOff,
+                        contentDescription = if (uiState.isLiveTranscribing) "Disable live transcription" else "Enable live transcription",
+                        tint = if (uiState.isLiveTranscribing) Coral else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // Control buttons
         ControlButtons(
@@ -502,6 +617,7 @@ private fun ControlButtons(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SaveRecordingSheet(
+    templateType: String,
     onSave: (String) -> Unit,
     onDiscard: () -> Unit,
     onReRecord: () -> Unit
@@ -541,6 +657,24 @@ private fun SaveRecordingSheet(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Template: ",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = templateType.replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Coral
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

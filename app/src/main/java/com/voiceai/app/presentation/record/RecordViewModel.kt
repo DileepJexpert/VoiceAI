@@ -11,6 +11,7 @@ import com.voiceai.app.domain.usecase.TranscribeAudioUseCase
 import com.voiceai.app.util.Constants
 import com.voiceai.app.util.FileUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import org.json.JSONArray
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -28,7 +29,11 @@ data class RecordUiState(
     val amplitudes: List<Float> = emptyList(),
     val isSaving: Boolean = false,
     val isTranscribing: Boolean = false,
-    val savedNoteId: Long? = null
+    val savedNoteId: Long? = null,
+    val templateType: String = "general",
+    val isLiveTranscribing: Boolean = false,
+    val liveTranscript: String = "",
+    val bookmarks: List<Long> = emptyList()
 )
 
 @HiltViewModel
@@ -102,12 +107,14 @@ class RecordViewModel @Inject constructor(
 
     fun saveNote(title: String) {
         val filePath = currentFilePath ?: return
-        val duration = _uiState.value.duration
+        val state = _uiState.value
+        val duration = state.duration
 
         _uiState.update { it.copy(isSaving = true) }
 
         viewModelScope.launch {
             val now = System.currentTimeMillis()
+            val bookmarksJson = JSONArray(state.bookmarks).toString()
             val note = VoiceNote(
                 id = 0L,
                 title = title,
@@ -120,7 +127,9 @@ class RecordViewModel @Inject constructor(
                 language = Constants.DEFAULT_LANGUAGE,
                 isFavorite = false,
                 folderId = null,
-                tags = emptyList()
+                tags = emptyList(),
+                templateType = state.templateType,
+                bookmarks = state.bookmarks
             )
 
             val noteId = voiceNoteRepository.insertNote(note)
@@ -151,6 +160,20 @@ class RecordViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun setTemplate(type: String) {
+        _uiState.update { it.copy(templateType = type) }
+    }
+
+    fun addBookmark() {
+        _uiState.update { state ->
+            state.copy(bookmarks = state.bookmarks + state.duration)
+        }
+    }
+
+    fun toggleLiveTranscription() {
+        _uiState.update { it.copy(isLiveTranscribing = !it.isLiveTranscribing) }
     }
 
     fun discardRecording() {

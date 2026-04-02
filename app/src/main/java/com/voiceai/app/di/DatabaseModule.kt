@@ -3,7 +3,12 @@ package com.voiceai.app.di
 import android.content.Context
 import androidx.room.Room
 import com.voiceai.app.data.local.AppDatabase
+import com.voiceai.app.data.local.dao.ActionItemDao
+import com.voiceai.app.data.local.dao.ExpenseDao
 import com.voiceai.app.data.local.dao.FolderDao
+import com.voiceai.app.data.local.dao.QRScanDao
+import com.voiceai.app.data.local.dao.ReminderDao
+import com.voiceai.app.data.local.dao.ScannedContactDao
 import com.voiceai.app.data.local.dao.ScannedDocumentDao
 import com.voiceai.app.data.local.dao.ScannedPageDao
 import com.voiceai.app.data.local.dao.TagDao
@@ -27,7 +32,7 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             Constants.DATABASE_NAME
-        ).build()
+        ).fallbackToDestructiveMigration().build()
 
     @Provides
     fun provideVoiceNoteDao(db: AppDatabase): VoiceNoteDao = db.voiceNoteDao()
@@ -43,4 +48,19 @@ object DatabaseModule {
 
     @Provides
     fun provideFolderDao(db: AppDatabase): FolderDao = db.folderDao()
+
+    @Provides
+    fun provideReminderDao(db: AppDatabase): ReminderDao = db.reminderDao()
+
+    @Provides
+    fun provideActionItemDao(db: AppDatabase): ActionItemDao = db.actionItemDao()
+
+    @Provides
+    fun provideScannedContactDao(db: AppDatabase): ScannedContactDao = db.scannedContactDao()
+
+    @Provides
+    fun provideExpenseDao(db: AppDatabase): ExpenseDao = db.expenseDao()
+
+    @Provides
+    fun provideQRScanDao(db: AppDatabase): QRScanDao = db.qrScanDao()
 }

@@ -12,11 +12,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -28,11 +33,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,6 +62,31 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showApiKey by remember { mutableStateOf(false) }
+    var showSpeechApiKey by remember { mutableStateOf(false) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
+
+    if (showClearAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearAllDialog = false },
+            title = { Text("Clear All Data") },
+            text = { Text("This will permanently delete all your data including notes, scans, and settings. This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllData()
+                        showClearAllDialog = false
+                    }
+                ) {
+                    Text("Delete Everything", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearAllDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -75,7 +107,9 @@ fun SettingsScreen(
             contentPadding = PaddingValues(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // --- Appearance Section ---
+            // ============================================================
+            // Appearance
+            // ============================================================
             item { SectionHeader("Appearance") }
             item {
                 ListItem(
@@ -101,9 +135,18 @@ fun SettingsScreen(
                     }
                 )
             }
-
-            // --- Language Section ---
-            item { SectionHeader("Language") }
+            item {
+                ListItem(
+                    headlineContent = { Text("Dynamic Colors") },
+                    supportingContent = { Text("Use Material You dynamic color theming") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.dynamicColorEnabled,
+                            onCheckedChange = { viewModel.setDynamicColor(it) }
+                        )
+                    }
+                )
+            }
             item {
                 val languages = listOf(
                     "en" to "English",
@@ -115,7 +158,7 @@ fun SettingsScreen(
                 var expanded by remember { mutableStateOf(false) }
 
                 ListItem(
-                    headlineContent = { Text("Language") },
+                    headlineContent = { Text("App UI Language") },
                     supportingContent = {
                         ExposedDropdownMenuBox(
                             expanded = expanded,
@@ -153,7 +196,9 @@ fun SettingsScreen(
                 )
             }
 
-            // --- Recording Section ---
+            // ============================================================
+            // Recording
+            // ============================================================
             item { SectionHeader("Recording") }
             item {
                 ListItem(
@@ -179,15 +224,107 @@ fun SettingsScreen(
                     }
                 )
             }
+            item {
+                val formats = listOf("m4a" to "M4A", "wav" to "WAV")
+                ListItem(
+                    headlineContent = { Text("Audio Format") },
+                    supportingContent = {
+                        Row(
+                            modifier = Modifier.padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            formats.forEach { (value, label) ->
+                                FilterChip(
+                                    selected = uiState.audioFormat == value,
+                                    onClick = { viewModel.setAudioFormat(value) },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Noise Cancellation") },
+                    supportingContent = { Text("Reduce background noise during recording") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.noiseCancellation,
+                            onCheckedChange = { viewModel.setNoiseCancellation(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Auto-pause on Silence") },
+                    supportingContent = { Text("Automatically pause when no speech is detected") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.autoPauseOnSilence,
+                            onCheckedChange = { viewModel.setAutoPauseOnSilence(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                val templates = listOf(
+                    "general" to "General",
+                    "meeting" to "Meeting",
+                    "lecture" to "Lecture",
+                    "interview" to "Interview",
+                    "brainstorm" to "Brainstorm"
+                )
+                var expanded by remember { mutableStateOf(false) }
 
-            // --- Scanner Section ---
+                ListItem(
+                    headlineContent = { Text("Default Recording Template") },
+                    supportingContent = {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = templates.find { it.first == uiState.defaultTemplate }?.second
+                                    ?: "General",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                                },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                templates.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            viewModel.setDefaultTemplate(value)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+
+            // ============================================================
+            // Scanner
+            // ============================================================
             item { SectionHeader("Scanner") }
             item {
                 ListItem(
                     headlineContent = { Text("Auto-capture") },
-                    supportingContent = {
-                        Text("Automatically capture when document is detected")
-                    },
+                    supportingContent = { Text("Automatically capture when document is detected") },
                     trailingContent = {
                         Switch(
                             checked = uiState.autoCaptureEnabled,
@@ -245,8 +382,124 @@ fun SettingsScreen(
                     }
                 )
             }
+            item {
+                val qualities = listOf("MEDIUM" to "Medium", "HIGH" to "High", "MAXIMUM" to "Maximum")
+                ListItem(
+                    headlineContent = { Text("Image Quality") },
+                    supportingContent = {
+                        Row(
+                            modifier = Modifier.padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            qualities.forEach { (value, label) ->
+                                FilterChip(
+                                    selected = uiState.imageQuality == value,
+                                    onClick = { viewModel.setImageQuality(value) },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Auto-detect Document Type") },
+                    supportingContent = { Text("Automatically classify documents (receipt, business card, etc.)") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.autoDetectDocType,
+                            onCheckedChange = { viewModel.setAutoDetectDocType(it) }
+                        )
+                    }
+                )
+            }
 
-            // --- Text-to-Speech Section ---
+            // ============================================================
+            // Transcription & AI
+            // ============================================================
+            item { SectionHeader("Transcription & AI") }
+            item {
+                val allLanguages = listOf(
+                    "en" to "English",
+                    "hi" to "Hindi",
+                    "es" to "Spanish",
+                    "fr" to "French",
+                    "de" to "German",
+                    "zh" to "Chinese",
+                    "ja" to "Japanese",
+                    "ko" to "Korean",
+                    "ar" to "Arabic",
+                    "pt" to "Portuguese"
+                )
+
+                ListItem(
+                    headlineContent = { Text("Transcription Languages") },
+                    supportingContent = {
+                        Row(
+                            modifier = Modifier.padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            allLanguages.take(5).forEach { (code, name) ->
+                                FilterChip(
+                                    selected = uiState.transcriptionLanguages.contains(code),
+                                    onClick = {
+                                        val updated = if (uiState.transcriptionLanguages.contains(code)) {
+                                            uiState.transcriptionLanguages - code
+                                        } else {
+                                            uiState.transcriptionLanguages + code
+                                        }
+                                        if (updated.isNotEmpty()) {
+                                            viewModel.setTranscriptionLanguages(updated)
+                                        }
+                                    },
+                                    label = { Text(name) }
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Speaker Detection") },
+                    supportingContent = { Text("Identify different speakers in transcription") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.speakerDetection,
+                            onCheckedChange = { viewModel.setSpeakerDetection(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Auto-extract Action Items") },
+                    supportingContent = { Text("Automatically detect tasks and action items from notes") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.autoExtractActions,
+                            onCheckedChange = { viewModel.setAutoExtractActions(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Auto-tag Notes") },
+                    supportingContent = { Text("Automatically generate tags from note content") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.autoTagNotes,
+                            onCheckedChange = { viewModel.setAutoTagNotes(it) }
+                        )
+                    }
+                )
+            }
+
+            // ============================================================
+            // Text-to-Speech
+            // ============================================================
             item { SectionHeader("Text-to-Speech") }
             item {
                 ListItem(
@@ -288,9 +541,333 @@ fun SettingsScreen(
                     }
                 )
             }
+            item {
+                ListItem(
+                    headlineContent = { Text("Voice Selection") },
+                    supportingContent = { Text("Default system voice") }
+                )
+            }
 
-            // --- API Configuration Section ---
+            // ============================================================
+            // Translation
+            // ============================================================
+            item { SectionHeader("Translation") }
+            item {
+                val translationLanguages = listOf(
+                    "en" to "English",
+                    "hi" to "Hindi",
+                    "es" to "Spanish",
+                    "fr" to "French",
+                    "de" to "German",
+                    "zh" to "Chinese",
+                    "ja" to "Japanese",
+                    "ar" to "Arabic"
+                )
+                var expanded by remember { mutableStateOf(false) }
+
+                ListItem(
+                    headlineContent = { Text("Default Target Language") },
+                    supportingContent = {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = translationLanguages.find { it.first == uiState.defaultTranslationLang }?.second
+                                    ?: "English",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                                },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                translationLanguages.forEach { (code, name) ->
+                                    DropdownMenuItem(
+                                        text = { Text(name) },
+                                        onClick = {
+                                            viewModel.setDefaultTranslationLang(code)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Auto-translate Scans") },
+                    supportingContent = { Text("Automatically translate scanned document text") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.autoTranslateScans,
+                            onCheckedChange = { viewModel.setAutoTranslateScans(it) }
+                        )
+                    }
+                )
+            }
+
+            // ============================================================
+            // Privacy & Security
+            // ============================================================
+            item { SectionHeader("Privacy & Security") }
+            item {
+                ListItem(
+                    headlineContent = { Text("Biometric Lock") },
+                    supportingContent = { Text("Require fingerprint or face to open app") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.biometricEnabled,
+                            onCheckedChange = { viewModel.setBiometricEnabled(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Encrypt Storage") },
+                    supportingContent = { Text("Encrypt all local data at rest") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.encryptStorage,
+                            onCheckedChange = { viewModel.setEncryptStorage(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("On-device Only") },
+                    supportingContent = { Text("Keep all processing on device, no cloud APIs") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.onDeviceOnly,
+                            onCheckedChange = { viewModel.setOnDeviceOnly(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                val deleteOptions = listOf(
+                    0 to "Off",
+                    7 to "7 days",
+                    30 to "30 days",
+                    90 to "90 days",
+                    365 to "365 days"
+                )
+                var expanded by remember { mutableStateOf(false) }
+
+                ListItem(
+                    headlineContent = { Text("Auto-delete Timer") },
+                    supportingContent = {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = deleteOptions.find { it.first == uiState.autoDeleteDays }?.second
+                                    ?: "Off",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                                },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                deleteOptions.forEach { (days, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            viewModel.setAutoDeleteDays(days)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Clear All Data") },
+                    supportingContent = { Text("Permanently delete all app data") },
+                    leadingContent = {
+                        Icon(
+                            Icons.Filled.DeleteForever,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    trailingContent = {
+                        OutlinedButton(onClick = { showClearAllDialog = true }) {
+                            Text("Clear", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                )
+            }
+
+            // ============================================================
+            // Cloud & Backup
+            // ============================================================
+            item { SectionHeader("Cloud & Backup") }
+            item {
+                ListItem(
+                    headlineContent = { Text("Google Drive Sync") },
+                    supportingContent = { Text("Sync data with Google Drive (coming soon)") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.cloudBackupEnabled,
+                            onCheckedChange = { viewModel.setCloudBackupEnabled(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                val frequencies = listOf(
+                    "manual" to "Manual",
+                    "daily" to "Daily",
+                    "weekly" to "Weekly",
+                    "monthly" to "Monthly"
+                )
+                var expanded by remember { mutableStateOf(false) }
+
+                ListItem(
+                    headlineContent = { Text("Backup Frequency") },
+                    supportingContent = {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = frequencies.find { it.first == uiState.backupFrequency }?.second
+                                    ?: "Manual",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                                },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                frequencies.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            viewModel.setBackupFrequency(value)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Export All Data") },
+                    supportingContent = { Text("Download everything as a ZIP file") },
+                    trailingContent = {
+                        FilledTonalButton(onClick = { viewModel.exportAllData() }) {
+                            Text("Export ZIP")
+                        }
+                    }
+                )
+            }
+
+            // ============================================================
+            // Integrations
+            // ============================================================
+            item { SectionHeader("Integrations") }
+            item {
+                ListItem(
+                    headlineContent = { Text("Calendar Sync") },
+                    supportingContent = { Text("Sync action items with device calendar") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.calendarSync,
+                            onCheckedChange = { viewModel.setCalendarSync(it) }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Webhook URL") },
+                    supportingContent = {
+                        OutlinedTextField(
+                            value = uiState.webhookUrl,
+                            onValueChange = { viewModel.setWebhookUrl(it) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            singleLine = true,
+                            placeholder = { Text("https://example.com/webhook") }
+                        )
+                    }
+                )
+            }
+
+            // ============================================================
+            // API Configuration
+            // ============================================================
             item { SectionHeader("API Configuration") }
+            item {
+                ListItem(
+                    headlineContent = { Text("Speech API Key") },
+                    supportingContent = {
+                        OutlinedTextField(
+                            value = uiState.speechApiKey,
+                            onValueChange = { viewModel.setSpeechApiKey(it) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            singleLine = true,
+                            placeholder = { Text("Enter your Speech API key") },
+                            visualTransformation = if (showSpeechApiKey) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            trailingIcon = {
+                                IconButton(onClick = { showSpeechApiKey = !showSpeechApiKey }) {
+                                    Icon(
+                                        imageVector = if (showSpeechApiKey) {
+                                            Icons.Filled.VisibilityOff
+                                        } else {
+                                            Icons.Filled.Visibility
+                                        },
+                                        contentDescription = "Toggle visibility"
+                                    )
+                                }
+                            }
+                        )
+                    }
+                )
+            }
             item {
                 ListItem(
                     headlineContent = { Text("Claude API Key") },
@@ -324,27 +901,122 @@ fun SettingsScreen(
                     }
                 )
             }
+            item {
+                ListItem(
+                    headlineContent = { Text("API Usage") },
+                    supportingContent = { Text("Usage tracking coming soon") }
+                )
+            }
 
-            // --- Storage Section ---
+            // ============================================================
+            // Storage
+            // ============================================================
             item { SectionHeader("Storage") }
             item {
                 ListItem(
                     headlineContent = { Text("Storage Used") },
-                    supportingContent = { Text(uiState.storageUsed) },
+                    supportingContent = { Text(uiState.storageUsed) }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Clear Cache") },
+                    supportingContent = { Text("Remove temporary files") },
                     trailingContent = {
                         FilledTonalButton(onClick = { viewModel.clearCache() }) {
-                            Text("Clear Cache")
+                            Text("Clear")
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Clear Old Recordings") },
+                    supportingContent = { Text("Delete recordings older than auto-delete period") },
+                    trailingContent = {
+                        FilledTonalButton(onClick = { viewModel.clearOldRecordings() }) {
+                            Text("Clear")
                         }
                     }
                 )
             }
 
-            // --- About Section ---
+            // ============================================================
+            // Notifications
+            // ============================================================
+            item { SectionHeader("Notifications") }
+            item {
+                val timeOptions = listOf(
+                    "06:00" to "6:00 AM",
+                    "07:00" to "7:00 AM",
+                    "08:00" to "8:00 AM",
+                    "09:00" to "9:00 AM",
+                    "10:00" to "10:00 AM",
+                    "12:00" to "12:00 PM",
+                    "18:00" to "6:00 PM",
+                    "20:00" to "8:00 PM"
+                )
+                var expanded by remember { mutableStateOf(false) }
+
+                ListItem(
+                    headlineContent = { Text("Daily Digest Time") },
+                    supportingContent = {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = timeOptions.find { it.first == uiState.dailyDigestTime }?.second
+                                    ?: uiState.dailyDigestTime,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                                },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                timeOptions.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            viewModel.setDailyDigestTime(value)
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Reminder Notifications") },
+                    supportingContent = { Text("Get notified about upcoming action items") },
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.reminderNotifications,
+                            onCheckedChange = { viewModel.setReminderNotifications(it) }
+                        )
+                    }
+                )
+            }
+
+            // ============================================================
+            // About
+            // ============================================================
             item { SectionHeader("About") }
             item {
                 ListItem(
                     headlineContent = { Text("App Version") },
-                    supportingContent = { Text("1.0.0") },
+                    supportingContent = { Text("2.0.0") },
                     leadingContent = {
                         Icon(Icons.Filled.Info, contentDescription = null)
                     }
@@ -352,9 +1024,17 @@ fun SettingsScreen(
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Rate App") },
+                    headlineContent = { Text("Rate on Play Store") },
                     leadingContent = {
                         Icon(Icons.Filled.Star, contentDescription = null)
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Share App") },
+                    leadingContent = {
+                        Icon(Icons.Filled.Share, contentDescription = null)
                     }
                 )
             }
@@ -363,6 +1043,22 @@ fun SettingsScreen(
                     headlineContent = { Text("Privacy Policy") },
                     leadingContent = {
                         Icon(Icons.Filled.Policy, contentDescription = null)
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Terms of Service") },
+                    leadingContent = {
+                        Icon(Icons.Filled.Description, contentDescription = null)
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Open Source Licenses") },
+                    leadingContent = {
+                        Icon(Icons.Filled.Code, contentDescription = null)
                     }
                 )
             }

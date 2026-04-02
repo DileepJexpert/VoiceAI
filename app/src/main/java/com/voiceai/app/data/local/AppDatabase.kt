@@ -2,14 +2,24 @@ package com.voiceai.app.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.voiceai.app.data.local.dao.ActionItemDao
+import com.voiceai.app.data.local.dao.ExpenseDao
 import com.voiceai.app.data.local.dao.FolderDao
+import com.voiceai.app.data.local.dao.QRScanDao
+import com.voiceai.app.data.local.dao.ReminderDao
+import com.voiceai.app.data.local.dao.ScannedContactDao
 import com.voiceai.app.data.local.dao.ScannedDocumentDao
 import com.voiceai.app.data.local.dao.ScannedPageDao
 import com.voiceai.app.data.local.dao.TagDao
 import com.voiceai.app.data.local.dao.VoiceNoteDao
+import com.voiceai.app.data.local.entity.ActionItemEntity
+import com.voiceai.app.data.local.entity.ExpenseEntity
 import com.voiceai.app.data.local.entity.FolderEntity
 import com.voiceai.app.data.local.entity.NoteTagCrossRef
+import com.voiceai.app.data.local.entity.QRScanEntity
+import com.voiceai.app.data.local.entity.ReminderEntity
 import com.voiceai.app.data.local.entity.ScanTagCrossRef
+import com.voiceai.app.data.local.entity.ScannedContactEntity
 import com.voiceai.app.data.local.entity.ScannedDocumentEntity
 import com.voiceai.app.data.local.entity.ScannedPageEntity
 import com.voiceai.app.data.local.entity.TagEntity
@@ -23,9 +33,14 @@ import com.voiceai.app.data.local.entity.VoiceNoteEntity
         TagEntity::class,
         FolderEntity::class,
         NoteTagCrossRef::class,
-        ScanTagCrossRef::class
+        ScanTagCrossRef::class,
+        ReminderEntity::class,
+        ActionItemEntity::class,
+        ScannedContactEntity::class,
+        ExpenseEntity::class,
+        QRScanEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,4 +50,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scannedPageDao(): ScannedPageDao
     abstract fun tagDao(): TagDao
     abstract fun folderDao(): FolderDao
+    abstract fun reminderDao(): ReminderDao
+    abstract fun actionItemDao(): ActionItemDao
+    abstract fun scannedContactDao(): ScannedContactDao
+    abstract fun expenseDao(): ExpenseDao
+    abstract fun qrScanDao(): QRScanDao
 }

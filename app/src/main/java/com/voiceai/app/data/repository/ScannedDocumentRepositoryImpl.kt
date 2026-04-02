@@ -125,14 +125,20 @@ fun ScannedDocumentEntity.toDomain(
         id = id,
         title = title,
         extractedText = extractedText,
+        translatedText = translatedText,
         summary = summary,
+        keyInfo = keyInfo,
+        documentType = documentType,
         pageCount = pageCount,
         createdAt = createdAt,
         updatedAt = updatedAt,
         language = language,
+        detectedLanguage = detectedLanguage,
         isFavorite = isFavorite,
         folderId = folderId,
         pdfFilePath = pdfFilePath,
+        autoDeleteAt = autoDeleteAt,
+        isEncrypted = isEncrypted,
         pages = pages,
         tags = tags
     )
@@ -143,14 +149,20 @@ fun ScannedDocument.toEntity(): ScannedDocumentEntity {
         id = id,
         title = title,
         extractedText = extractedText,
+        translatedText = translatedText,
         summary = summary,
+        keyInfo = keyInfo,
+        documentType = documentType,
         pageCount = pageCount,
         createdAt = createdAt,
         updatedAt = updatedAt,
         language = language,
+        detectedLanguage = detectedLanguage,
         isFavorite = isFavorite,
         folderId = folderId,
-        pdfFilePath = pdfFilePath
+        pdfFilePath = pdfFilePath,
+        autoDeleteAt = autoDeleteAt,
+        isEncrypted = isEncrypted
     )
 }
 
@@ -162,6 +174,7 @@ fun ScannedPageEntity.toDomain(): ScannedPage {
         imagePath = imagePath,
         rawImagePath = rawImagePath,
         pageText = pageText,
+        tableData = tableData,
         filter = filter
     )
 }
@@ -174,6 +187,7 @@ fun ScannedPage.toEntity(): ScannedPageEntity {
         imagePath = imagePath,
         rawImagePath = rawImagePath,
         pageText = pageText,
+        tableData = tableData,
         filter = filter
     )
 }

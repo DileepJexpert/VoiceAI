@@ -2,8 +2,14 @@ package com.voiceai.app.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.voiceai.app.domain.model.ActionItem
+import com.voiceai.app.domain.model.Expense
+import com.voiceai.app.domain.model.ScannedContact
 import com.voiceai.app.domain.model.ScannedDocument
 import com.voiceai.app.domain.model.VoiceNote
+import com.voiceai.app.domain.repository.ActionItemRepository
+import com.voiceai.app.domain.repository.ContactRepository
+import com.voiceai.app.domain.repository.ExpenseRepository
 import com.voiceai.app.domain.repository.ScannedDocumentRepository
 import com.voiceai.app.domain.repository.VoiceNoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class SearchFilter { ALL, VOICE_NOTES, SCANNED_DOCS }
+enum class SearchFilter { ALL, VOICE_NOTES, SCANNED_DOCS, ACTION_ITEMS, CONTACTS, EXPENSES }
 
 data class SearchUiState(
     val query: String = "",
