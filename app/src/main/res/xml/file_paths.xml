@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <files-path name="audio" path="audio/" />
+    <files-path name="scans" path="scans/" />
+    <files-path name="pdfs" path="pdfs/" />
+    <cache-path name="cache" path="." />
+</paths>

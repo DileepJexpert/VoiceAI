@@ -1,0 +1,134 @@
+package com.voiceai.app.data.repository
+
+import com.voiceai.app.data.local.dao.TagDao
+import com.voiceai.app.data.local.dao.VoiceNoteDao
+import com.voiceai.app.data.local.entity.NoteTagCrossRef
+import com.voiceai.app.data.local.entity.TagEntity
+import com.voiceai.app.data.local.entity.VoiceNoteEntity
+import com.voiceai.app.domain.model.Tag
+import com.voiceai.app.domain.model.VoiceNote
+import com.voiceai.app.domain.repository.VoiceNoteRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class VoiceNoteRepositoryImpl @Inject constructor(
+    private val voiceNoteDao: VoiceNoteDao,
+    private val tagDao: TagDao
+) : VoiceNoteRepository {
+
+    override fun getAllNotes(): Flow<List<VoiceNote>> {
+        return voiceNoteDao.getAll().map { entities ->
+            entities.map { entity ->
+                val tags = tagDao.getTagsForNote(entity.id).first()
+                entity.toDomain(tags.map { it.toDomain() })
+            }
+        }
+    }
+
+    override suspend fun getNoteById(id: Long): VoiceNote? {
+        val entity = voiceNoteDao.getById(id) ?: return null
+        val tags = tagDao.getTagsForNote(id).first()
+        return entity.toDomain(tags.map { it.toDomain() })
+    }
+
+    override fun searchNotes(query: String): Flow<List<VoiceNote>> {
+        return voiceNoteDao.search(query).map { entities ->
+            entities.map { entity ->
+                val tags = tagDao.getTagsForNote(entity.id).first()
+                entity.toDomain(tags.map { it.toDomain() })
+            }
+        }
+    }
+
+    override suspend fun insertNote(note: VoiceNote): Long {
+        val id = voiceNoteDao.insert(note.toEntity())
+        note.tags.forEach { tag ->
+            val tagId = if (tag.id == 0L) {
+                tagDao.insert(tag.toEntity())
+            } else {
+                tag.id
+            }
+            tagDao.insertNoteTag(NoteTagCrossRef(noteId = id, tagId = tagId))
+        }
+        return id
+    }
+
+    override suspend fun updateNote(note: VoiceNote) {
+        voiceNoteDao.update(note.toEntity())
+        // Remove existing tag associations and re-insert
+        val existingTags = tagDao.getTagsForNote(note.id).first()
+        existingTags.forEach { tag ->
+            tagDao.deleteNoteTag(NoteTagCrossRef(noteId = note.id, tagId = tag.id))
+        }
+        note.tags.forEach { tag ->
+            val tagId = if (tag.id == 0L) {
+                tagDao.insert(tag.toEntity())
+            } else {
+                tag.id
+            }
+            tagDao.insertNoteTag(NoteTagCrossRef(noteId = note.id, tagId = tagId))
+        }
+    }
+
+    override suspend fun deleteNote(id: Long) {
+        voiceNoteDao.deleteById(id)
+    }
+
+    override suspend fun toggleFavorite(id: Long) {
+        val note = voiceNoteDao.getById(id) ?: return
+        voiceNoteDao.update(note.copy(isFavorite = !note.isFavorite))
+    }
+}
+
+fun VoiceNoteEntity.toDomain(tags: List<Tag> = emptyList()): VoiceNote {
+    return VoiceNote(
+        id = id,
+        title = title,
+        audioFilePath = audioFilePath,
+        transcript = transcript,
+        summary = summary,
+        duration = duration,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        language = language,
+        isFavorite = isFavorite,
+        folderId = folderId,
+        tags = tags
+    )
+}
+
+fun VoiceNote.toEntity(): VoiceNoteEntity {
+    return VoiceNoteEntity(
+        id = id,
+        title = title,
+        audioFilePath = audioFilePath,
+        transcript = transcript,
+        summary = summary,
+        duration = duration,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        language = language,
+        isFavorite = isFavorite,
+        folderId = folderId
+    )
+}
+
+fun TagEntity.toDomain(): Tag {
+    return Tag(
+        id = id,
+        name = name,
+        color = color
+    )
+}
+
+fun Tag.toEntity(): TagEntity {
+    return TagEntity(
+        id = id,
+        name = name,
+        color = color
+    )
+}
