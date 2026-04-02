@@ -14,16 +14,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -31,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +60,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.voiceai.app.domain.model.ActionItem
+import com.voiceai.app.domain.model.Expense
+import com.voiceai.app.domain.model.ScannedContact
 import com.voiceai.app.presentation.navigation.Routes
 import com.voiceai.app.util.DateUtils
 
@@ -72,75 +85,145 @@ fun SearchScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            SearchBar(
-                inputField = {
-                    SearchBarDefaults.InputField(
-                        query = uiState.query,
-                        onQueryChange = viewModel::updateQuery,
-                        onSearch = {},
-                        expanded = false,
-                        onExpandedChange = {},
-                        modifier = Modifier.focusRequester(focusRequester),
-                        placeholder = { Text("Search notes and scans") },
-                        leadingIcon = {
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back"
-                                )
-                            }
-                        },
-                        trailingIcon = {
-                            if (uiState.query.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.clearSearch() }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Clear,
-                                        contentDescription = "Clear"
-                                    )
-                                }
-                            }
-                        }
-                    )
-                },
-                expanded = false,
-                onExpandedChange = {},
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {}
-
-            // Filter chips
+            // Search bar with voice search and Ask AI buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                FilterChip(
-                    selected = uiState.selectedFilter == SearchFilter.ALL,
-                    onClick = { viewModel.setFilter(SearchFilter.ALL) },
-                    label = { Text("All") }
-                )
-                FilterChip(
-                    selected = uiState.selectedFilter == SearchFilter.VOICE_NOTES,
-                    onClick = { viewModel.setFilter(SearchFilter.VOICE_NOTES) },
-                    label = { Text("Voice Notes") }
-                )
-                FilterChip(
-                    selected = uiState.selectedFilter == SearchFilter.SCANNED_DOCS,
-                    onClick = { viewModel.setFilter(SearchFilter.SCANNED_DOCS) },
-                    label = { Text("Scanned Docs") }
-                )
+                SearchBar(
+                    inputField = {
+                        SearchBarDefaults.InputField(
+                            query = uiState.query,
+                            onQueryChange = viewModel::updateQuery,
+                            onSearch = {},
+                            expanded = false,
+                            onExpandedChange = {},
+                            modifier = Modifier.focusRequester(focusRequester),
+                            placeholder = { Text("Search notes, scans, and more") },
+                            leadingIcon = {
+                                IconButton(onClick = { navController.popBackStack() }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back"
+                                    )
+                                }
+                            },
+                            trailingIcon = {
+                                Row {
+                                    if (uiState.query.isNotEmpty()) {
+                                        IconButton(onClick = { viewModel.clearSearch() }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Clear,
+                                                contentDescription = "Clear"
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = { /* Voice search placeholder */ }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Mic,
+                                            contentDescription = "Voice search",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        )
+                    },
+                    expanded = false,
+                    onExpandedChange = {},
+                    modifier = Modifier.weight(1f)
+                ) {}
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                SmallFloatingActionButton(
+                    onClick = {
+                        if (uiState.query.isNotBlank()) {
+                            viewModel.askAI(uiState.query)
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = "Ask AI"
+                    )
+                }
+            }
+
+            // Filter chips
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp)
+            ) {
+                item {
+                    FilterChip(
+                        selected = uiState.selectedFilter == SearchFilter.ALL,
+                        onClick = { viewModel.setFilter(SearchFilter.ALL) },
+                        label = { Text("All") }
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = uiState.selectedFilter == SearchFilter.VOICE_NOTES,
+                        onClick = { viewModel.setFilter(SearchFilter.VOICE_NOTES) },
+                        label = { Text("Voice Notes") }
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = uiState.selectedFilter == SearchFilter.SCANNED_DOCS,
+                        onClick = { viewModel.setFilter(SearchFilter.SCANNED_DOCS) },
+                        label = { Text("Scanned Docs") }
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = uiState.selectedFilter == SearchFilter.ACTION_ITEMS,
+                        onClick = { viewModel.setFilter(SearchFilter.ACTION_ITEMS) },
+                        label = { Text("Action Items") }
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = uiState.selectedFilter == SearchFilter.CONTACTS,
+                        onClick = { viewModel.setFilter(SearchFilter.CONTACTS) },
+                        label = { Text("Contacts") }
+                    )
+                }
+                item {
+                    FilterChip(
+                        selected = uiState.selectedFilter == SearchFilter.EXPENSES,
+                        onClick = { viewModel.setFilter(SearchFilter.EXPENSES) },
+                        label = { Text("Expenses") }
+                    )
+                }
             }
 
             // Content area
             when {
-                uiState.isSearching -> {
+                uiState.isSearching || uiState.isAskingAI -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            if (uiState.isAskingAI) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Asking AI...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -149,25 +232,39 @@ fun SearchScreen(
                 }
 
                 else -> {
-                    val showVoiceNotes = uiState.selectedFilter != SearchFilter.SCANNED_DOCS
-                    val showScans = uiState.selectedFilter != SearchFilter.VOICE_NOTES
+                    val filter = uiState.selectedFilter
+                    val showVoiceNotes = filter == SearchFilter.ALL || filter == SearchFilter.VOICE_NOTES
+                    val showScans = filter == SearchFilter.ALL || filter == SearchFilter.SCANNED_DOCS
+                    val showActions = filter == SearchFilter.ALL || filter == SearchFilter.ACTION_ITEMS
+                    val showContacts = filter == SearchFilter.ALL || filter == SearchFilter.CONTACTS
+                    val showExpenses = filter == SearchFilter.ALL || filter == SearchFilter.EXPENSES
 
                     val voiceNotes = if (showVoiceNotes) uiState.voiceNoteResults else emptyList()
                     val scans = if (showScans) uiState.scanResults else emptyList()
+                    val actionItems = if (showActions) uiState.actionItemResults else emptyList()
+                    val contacts = if (showContacts) uiState.contactResults else emptyList()
+                    val expenses = if (showExpenses) uiState.expenseResults else emptyList()
 
-                    if (voiceNotes.isEmpty() && scans.isEmpty()) {
+                    if (voiceNotes.isEmpty() && scans.isEmpty() && actionItems.isEmpty() &&
+                        contacts.isEmpty() && expenses.isEmpty() && uiState.aiAnswer == null
+                    ) {
                         EmptyResultsState()
                     } else {
                         SearchResultsList(
                             voiceNotes = voiceNotes,
                             scans = scans,
+                            actionItems = actionItems,
+                            contacts = contacts,
+                            expenses = expenses,
+                            aiAnswer = uiState.aiAnswer,
                             query = uiState.query,
                             onVoiceNoteClick = { noteId ->
                                 navController.navigate(Routes.noteDetail(noteId))
                             },
                             onScanClick = { scanId ->
                                 navController.navigate(Routes.scanDetail(scanId))
-                            }
+                            },
+                            onDismissAIAnswer = { viewModel.dismissAIAnswer() }
                         )
                     }
                 }
@@ -180,91 +277,317 @@ fun SearchScreen(
 private fun SearchResultsList(
     voiceNotes: List<com.voiceai.app.domain.model.VoiceNote>,
     scans: List<com.voiceai.app.domain.model.ScannedDocument>,
+    actionItems: List<ActionItem>,
+    contacts: List<ScannedContact>,
+    expenses: List<Expense>,
+    aiAnswer: String?,
     query: String,
     onVoiceNoteClick: (Long) -> Unit,
-    onScanClick: (Long) -> Unit
+    onScanClick: (Long) -> Unit,
+    onDismissAIAnswer: () -> Unit
 ) {
     LazyColumn(
         contentPadding = PaddingValues(vertical = 4.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        items(
-            items = voiceNotes,
-            key = { "note_${it.id}" }
-        ) { note ->
-            ListItem(
-                headlineContent = {
-                    Text(
-                        text = note.title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+        // AI Answer card
+        if (aiAnswer != null) {
+            item(key = "ai_answer") {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
                     )
-                },
-                supportingContent = {
-                    Column {
-                        HighlightedText(
-                            text = note.transcript ?: note.summary ?: "",
-                            query = query,
-                            maxLines = 2
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "AI Answer",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                            IconButton(
+                                onClick = onDismissAIAnswer,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Dismiss",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = DateUtils.formatRelativeTime(note.createdAt),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = aiAnswer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
                     }
-                },
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Filled.Mic,
-                        contentDescription = "Voice note",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                },
-                modifier = Modifier.clickable { onVoiceNoteClick(note.id) }
-            )
+                }
+            }
         }
 
-        items(
-            items = scans,
-            key = { "scan_${it.id}" }
-        ) { doc ->
-            ListItem(
-                headlineContent = {
-                    Text(
-                        text = doc.title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                supportingContent = {
-                    Column {
-                        HighlightedText(
-                            text = doc.extractedText ?: doc.summary ?: "",
-                            query = query,
-                            maxLines = 2
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
+        // Voice Notes section
+        if (voiceNotes.isNotEmpty()) {
+            item(key = "header_voice_notes") {
+                ResultSectionHeader("Voice Notes", voiceNotes.size)
+            }
+            items(
+                items = voiceNotes,
+                key = { "note_${it.id}" }
+            ) { note ->
+                ListItem(
+                    headlineContent = {
                         Text(
-                            text = DateUtils.formatRelativeTime(doc.createdAt),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = note.title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    supportingContent = {
+                        Column {
+                            HighlightedText(
+                                text = note.transcript ?: note.summary ?: "",
+                                query = query,
+                                maxLines = 2
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = DateUtils.formatRelativeTime(note.createdAt),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.Mic,
+                            contentDescription = "Voice note",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    modifier = Modifier.clickable { onVoiceNoteClick(note.id) }
+                )
+            }
+        }
+
+        // Scanned Documents section
+        if (scans.isNotEmpty()) {
+            item(key = "header_scans") {
+                ResultSectionHeader("Scanned Documents", scans.size)
+            }
+            items(
+                items = scans,
+                key = { "scan_${it.id}" }
+            ) { doc ->
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = doc.title,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    supportingContent = {
+                        Column {
+                            HighlightedText(
+                                text = doc.extractedText ?: doc.summary ?: "",
+                                query = query,
+                                maxLines = 2
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = DateUtils.formatRelativeTime(doc.createdAt),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.Description,
+                            contentDescription = "Scanned document",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    modifier = Modifier.clickable { onScanClick(doc.id) }
+                )
+            }
+        }
+
+        // Action Items section
+        if (actionItems.isNotEmpty()) {
+            item(key = "header_action_items") {
+                ResultSectionHeader("Action Items", actionItems.size)
+            }
+            items(
+                items = actionItems,
+                key = { "action_${it.id}" }
+            ) { item ->
+                ListItem(
+                    headlineContent = {
+                        HighlightedText(
+                            text = item.title,
+                            query = query,
+                            maxLines = 1
+                        )
+                    },
+                    supportingContent = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = item.status.lowercase().replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (item.dueDate != null) {
+                                Text(
+                                    text = "Due: ${DateUtils.formatRelativeTime(item.dueDate)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = "Action item",
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                },
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Filled.Description,
-                        contentDescription = "Scanned document",
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                },
-                modifier = Modifier.clickable { onScanClick(doc.id) }
-            )
+                )
+            }
         }
+
+        // Contacts section
+        if (contacts.isNotEmpty()) {
+            item(key = "header_contacts") {
+                ResultSectionHeader("Contacts", contacts.size)
+            }
+            items(
+                items = contacts,
+                key = { "contact_${it.id}" }
+            ) { contact ->
+                ListItem(
+                    headlineContent = {
+                        HighlightedText(
+                            text = contact.name,
+                            query = query,
+                            maxLines = 1
+                        )
+                    },
+                    supportingContent = {
+                        Column {
+                            if (!contact.company.isNullOrBlank()) {
+                                HighlightedText(
+                                    text = contact.company,
+                                    query = query,
+                                    maxLines = 1
+                                )
+                            }
+                            if (!contact.email.isNullOrBlank()) {
+                                Text(
+                                    text = contact.email,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = "Contact",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
+            }
+        }
+
+        // Expenses section
+        if (expenses.isNotEmpty()) {
+            item(key = "header_expenses") {
+                ResultSectionHeader("Expenses", expenses.size)
+            }
+            items(
+                items = expenses,
+                key = { "expense_${it.id}" }
+            ) { expense ->
+                ListItem(
+                    headlineContent = {
+                        HighlightedText(
+                            text = expense.merchant,
+                            query = query,
+                            maxLines = 1
+                        )
+                    },
+                    supportingContent = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "${expense.currency} ${String.format("%.2f", expense.amount)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (!expense.category.isNullOrBlank()) {
+                                Text(
+                                    text = expense.category,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                text = DateUtils.formatRelativeTime(expense.date),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.AttachMoney,
+                            contentDescription = "Expense",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultSectionHeader(title: String, count: Int) {
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+        Text(
+            text = "$title ($count)",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
+        )
     }
 }
 
@@ -335,6 +658,13 @@ private fun InitialState() {
                 text = "Search your notes and scans",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Or tap the sparkle button to ask AI a question",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
             )
         }
